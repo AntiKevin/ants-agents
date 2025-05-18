@@ -13,6 +13,7 @@ patches-own [
 
 to setup
   clear-all
+  set brush-size 1
   set-default-shape turtles "bug"
   create-turtles population
   [ set size 2         ;; easier to see
@@ -86,20 +87,20 @@ to go  ;; forever button
 end
 
 to edit-walls
-  if mouse-down?  ;; verifica se o mouse está pressionado
+  if mouse-down?
   [
-    let px round mouse-xcor
-    let py round mouse-ycor
-    if (px != 0 or py != 0)  ;; previne editar o centro
-    [
-      ask patch px py
-      [
-        set wall? not wall?  ;; toggle estado
-        recolor-patch
-      ]
+    let center-px mouse-xcor
+    let center-py mouse-ycor
+    ;; Define a área de desenho
+    let area patches with [
+      abs (pxcor - center-px) <= brush-size and
+      abs (pycor - center-py) <= brush-size
     ]
-    ;; Permite arrastar o mouse para desenhar continuamente
-    while [mouse-down?] [ wait 0.1 ]  ;; evita atualização muito rápida
+    ask area with [ not nest? ] [
+      set wall? not wall?
+      recolor-patch
+    ]
+    while [mouse-down?] [ wait 0.0 ]
   ]
 end
 
@@ -148,12 +149,15 @@ end
 to wiggle  ;; turtle procedure
   rt random 40
   lt random 40
-  ;; Nova verificação de parede
-  if not can-move? 1 or [wall?] of patch-ahead 1
-  [
+  ;; Verificação segura usando let
+  let target-patch patch-ahead 1
+  ifelse target-patch != nobody and [wall?] of target-patch
+  [ ;; Se houver parede à frente
     rt 180
-    ;; Correção para evitar loop em áreas fechadas
-    if [wall?] of patch-ahead 1 [ rt random 360 ]
+    rt random 60 - 30  ;; Adiciona variação aleatória
+  ]
+  [ ;; Verifica se está na borda do mundo
+    if not can-move? 1 [ rt 180 ]
   ]
 end
 
@@ -315,6 +319,21 @@ NIL
 NIL
 NIL
 1
+
+SLIDER
+808
+124
+980
+157
+brush-size
+brush-size
+1
+5
+1.0
+1
+1
+NIL
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
