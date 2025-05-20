@@ -7,12 +7,20 @@ patches-own [
   wall?                ;; parede/obstaculo dinamico
 ]
 
+globals [
+  season            ;; temporada atual ("summer", "winter", "rainy")
+  season-counter    ;; contador para mudança de estações
+]
+
 ;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Setup procedures ;;;
 ;;;;;;;;;;;;;;;;;;;;;;;;
 
 to setup
   clear-all
+  set season "summer"      ;; estação inicial
+  set season-duration 500  ;; ~5 minutos em ticks normais
+  set season-counter 0
   set brush-size 1
   set-default-shape turtles "bug"
   create-turtles population
@@ -24,7 +32,9 @@ end
 
 to setup-patches
   ask patches
-  [ setup-nest
+  [
+    set pcolor green
+    setup-nest
     setup-food
     set wall? false
     recolor-patch ]
@@ -56,14 +66,20 @@ to recolor-patch  ;; patch procedure
   ifelse (wall? = true)
   [ set pcolor gray ]  ;; cor dos obstáculos
   [
-  ifelse nest?
-  [ set pcolor violet ]
-  [ ifelse food > 0
-    [ if food-source-number = 1 [ set pcolor cyan ]
-      if food-source-number = 2 [ set pcolor sky  ]
-      if food-source-number = 3 [ set pcolor blue ] ]
-    ;; scale color to show chemical concentration
-    [ set pcolor scale-color green chemical 0.1 5 ] ]
+    ifelse nest?
+    [ set pcolor violet ]
+    [ ifelse food > 0
+      [ if food-source-number = 1 [ set pcolor cyan ]
+        if food-source-number = 2 [ set pcolor sky  ]
+        if food-source-number = 3 [ set pcolor cyan ] ]
+      [ ifelse chemical > 0.01
+        ;; Mostra feromônio em amarelo
+        [ set pcolor scale-color yellow chemical 0 0.1 ]
+        ;; Chão verde padrão
+        ;; [ set pcolor green ]
+        []
+      ]
+    ]
   ]
 end
 
@@ -72,18 +88,78 @@ end
 ;;;;;;;;;;;;;;;;;;;;;
 
 to go  ;; forever button
+   ;; Atualiza as estações
+  if season-counter >= season-duration [
+    change-season
+    set season-counter 0
+  ]
+  set season-counter season-counter + 1
   ask turtles
-  [ if who >= ticks [ stop ] ;; delay initial departure
+  [
+    ;; Efeitos sazonais primeiro
+    if season = "winter" [
+      rt random 50 - 25  ;; movimento errático
+      fd 0.5             ;; velocidade reduzida (substitui o fd original)
+    ]
+    if season = "rainy" [
+      rt random 20 - 10
+      fd 1.3             ;; velocidade aumentada (substitui o fd original)
+    ]
+
+    ;; Comportamento principal (sem fd extra)
+    if who >= ticks [ stop ]
     ifelse color = red
-    [ look-for-food  ]       ;; not carrying food? look for it
-    [ return-to-nest ]       ;; carrying food? take it back to nest
+    [ look-for-food  ]
+    [ return-to-nest ]
     wiggle
-    fd 1 ]
+
+    ;; Movimento único controlado pela estação
+    if season = "summer" [ fd 1 ]  ;; velocidade normal apenas no verão
+  ]
+
   diffuse chemical (diffusion-rate / 100)
   ask patches
-  [ set chemical chemical * (100 - evaporation-rate) / 100  ;; slowly evaporate chemical
+  [
+    if season = "summer" [
+      set chemical chemical * 0.95  ;; evaporação acelerada
+    ]
+    if season = "rainy" [
+      set chemical chemical * 0.5  ;; chuva lava os feromônios
+    ]
+    set chemical chemical * (100 - evaporation-rate) / 100  ;; slowly evaporate chemical
     recolor-patch ]
   tick
+end
+
+to change-season
+  set season item ((position season ["summer" "winter" "rainy"] + 1) mod 3) ["summer" "winter" "rainy"]
+  update-season-effects
+end
+
+to update-season-effects
+  ask patches [
+    ifelse season = "winter" [
+      set pcolor white
+    ]
+    [ ifelse season = "rainy" [
+        set pcolor blue
+      ]
+      [
+        set pcolor green
+      ]
+    ]
+  ]
+  ;; Atualiza fontes de comida
+  if season = "summer" [
+    ask patches with [food-source-number > 0] [
+      if random 100 < 5 [ set food one-of [1 2] ]  ;; frutas amadurecem
+    ]
+  ]
+  if season = "winter" [
+    ask patches with [food-source-number > 0] [
+      if random 100 < 20 [ set food 0 ]  ;; comida congela
+    ]
+  ]
 end
 
 to edit-walls
@@ -245,7 +321,7 @@ evaporation-rate
 evaporation-rate
 0.0
 99.0
-5.0
+25.0
 1.0
 1
 NIL
@@ -277,7 +353,7 @@ population
 population
 0.0
 200.0
-74.0
+137.0
 1.0
 1
 NIL
@@ -334,6 +410,32 @@ brush-size
 1
 NIL
 HORIZONTAL
+
+SLIDER
+869
+212
+1041
+245
+season-duration
+season-duration
+100
+1000
+500.0
+1
+1
+NIL
+HORIZONTAL
+
+MONITOR
+925
+296
+982
+341
+NIL
+season
+17
+1
+11
 
 @#$#@#$#@
 ## WHAT IS IT?
